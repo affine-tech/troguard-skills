@@ -21,11 +21,11 @@ POLL_INTERVAL = 2.0
 TERMINAL = {"succeeded", "failed", "canceled"}
 RISK_ORDER = ("critical", "high", "medium", "low", "unknown")
 RISK_LABEL = {
-    "critical": "极高",
-    "high": "高",
-    "medium": "中",
-    "low": "低",
-    "unknown": "未知",
+    "critical": "极高风险",
+    "high": "高风险",
+    "medium": "中风险",
+    "low": "低风险",
+    "unknown": "待确认",
 }
 
 GET_KEY_HELP = """未设置 TROGUARD_API_KEY。
