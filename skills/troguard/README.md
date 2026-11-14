@@ -1,6 +1,10 @@
 # TroGuard Agent Skill
 
+[![skills.sh](https://skills.sh/b/affine-tech/troguard-skills)](https://skills.sh/affine-tech/troguard-skills)
+
 给 AI Agent 用的 TroGuard 图片侵权检测能力：上传印花、主图、详情页素材，返回版权与 TRO 风险等级、证据来源和案件线索。
+
+官方维护：图盾 TroGuard（<https://www.troguard.com>）。只从官方仓库安装。
 
 适用于 Claude Code、Codex / OpenCode、Cursor 等兼容 Agent Skills 标准的工具。
 
