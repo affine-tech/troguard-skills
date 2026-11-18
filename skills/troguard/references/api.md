@@ -1,160 +1,130 @@
-# TroGuard 公开检测 API
+# TroGuard 免费单图接口
 
-Base URL：`https://app.troguard.com`
+Base：`https://app.troguard.com`
 
-所有请求使用 API Key：
+免费通道只接收 **1 张图**，返回完整单图检测报告；批量、历史、团队协作在 app 内。
 
-```http
-X-API-Key: trk_...
-```
-
-或：
+## 提交检测
 
 ```http
-Authorization: Bearer trk_...
-```
-
-API Key 在 <https://app.troguard.com/team/api-keys> 创建；完整 Key 只显示一次。调用按团队盾石计费，1 盾石/张，失败任务退还。
-
-402 按次支付通道已停用：没有 API Key 调用单图接口会返回 410 `aipay_deprecated`，不会创建账单。
-
-## 批量检测（推荐）
-
-```http
-POST /api/public/tro-check/batch
+POST /api/public/skill/check
 Content-Type: application/json
-X-API-Key: trk_...
-Idempotency-Key: optional-8-64-chars
 ```
 
 ```json
 {
-  "name": "上新自查",
-  "images": [
-    { "filename": "a.png", "image_base64": "..." },
-    { "filename": "b.jpg", "image_base64": "..." }
-  ]
+  "image_base64": "iVBORw0KGgo...",
+  "filename": "pattern.png",
+  "source": "skill"
 }
 ```
 
-- 一次 1–200 张；每张解码后 ≤10MB；请求体 ≤82MB。
-- `name` 可选，≤120 字符。
-- `Idempotency-Key` 可选，8–64 位字母、数字或 `-_.:`；同一团队 + 用户 + Key 重复请求返回同一批次，不重复扣盾石。
-- 成功 200：
+| 字段 | 类型 | 必填 | 说明 |
+|---|---|---|---|
+| `image_base64` | string | 是 | 图片 base64；解码后 ≤10MB，请求体 ≤16MB |
+| `filename` | string | 否 | 文件名，默认 `image` |
+| `source` | string | 否 | 来源标记，默认 `skill` |
+
+成功：
 
 ```json
 {
   "code": "ok",
-  "message": "success",
-  "data": { "id": "...", "total": 2, "jobs": [] },
-  "billing": "credits",
-  "credit_balance": 198,
-  "already_submitted": false
+  "message": "",
+  "data": {
+    "batch_id": "a1b2c3d4e5f6...",
+    "token": "long-random-token",
+    "expires_at": "2026-11-15T10:00:00Z",
+    "signup_url": "https://app.troguard.com/?utm_source=skill&utm_medium=agent&utm_campaign=free_check"
+  }
 }
 ```
 
-`data.id` 就是 `batch_id`。检测是异步的，需要轮询。
+- 免费检测不扣盾石。
+- 同一 IP 同时只能有 1 个检测在跑；每 IP 每日 50 次，全局每日 500 次，每分钟 3 次。
+- 结果只在本次 `token` 有效期内可查；不返回历史。
 
-## 批量检测（multipart）
-
-```http
-POST /api/public/tro-check/batch/upload
-Content-Type: multipart/form-data
-X-API-Key: trk_...
-```
-
-- 文件字段名 `images`，可重复；`name` 可选。
-- 适合大图或不想做 Base64 的客户端。
-- 其余限制与 JSON 批量接口一致。
-
-## 单图检测
+## 查询结果
 
 ```http
-POST /api/public/tro-check
-Content-Type: application/json
-X-API-Key: trk_...
+GET /api/public/skill/check/{batch_id}?token={token}
 ```
-
-```json
-{
-  "image_base64": "...",
-  "filename": "pattern.png",
-  "name": "可选批次名"
-}
-```
-
-- 请求体 ≤16MB；单张解码后 ≤10MB。
-- 成功 200，返回 `billing: "credits"` 和 `credit_balance`。
-- 无 API Key 返回 410 `aipay_deprecated`。
-- 盾石不足返回 402 `insufficient_credits`。
-
-## 轮询批次
-
-```http
-GET /api/public/tro-check/{batch_id}
-X-API-Key: trk_...
-```
-
-返回 `BatchView`：
 
 ```json
 {
   "code": "ok",
   "data": {
-    "id": "...",
-    "total": 2,
-    "created_at": "2026-11-14T12:00:00",
-    "jobs": [
-      {
-        "id": "...",
-        "filename": "a.png",
-        "status": "succeeded",
-        "result": {
-          "risk_level": "critical",
-          "verdict": "likely_infringing",
-          "summary": "...",
-          "confidence": 0.92,
-          "evidence": [
-            {
-              "title": "...",
-              "url": "...",
-              "domain": "...",
-              "source_type": "tro_case",
-              "relation": "same_image",
-              "relation_confidence": 0.95
-            }
-          ],
-          "advice": ["..."]
+    "batch": {
+      "id": "a1b2c3d4e5f6...",
+      "status": "succeeded",
+      "jobs": [
+        {
+          "id": "job-1",
+          "filename": "pattern.png",
+          "status": "succeeded",
+          "image_url": "https://...",
+          "result": {
+            "risk_level": "high",
+            "verdict": "likely_infringing",
+            "confidence": 0.82,
+            "summary": "命中案件库同图，疑似侵犯他人印花版权。",
+            "evidence": [
+              {
+                "title": "TATIANA ... / 26-cv-2438",
+                "url": "https://...",
+                "domain": "cases.troguard.com",
+                "source_type": "tro_case",
+                "relation": "same_image",
+                "relation_confidence": 0.91,
+                "thumbnail": "https://..."
+              }
+            ],
+            "advice": ["核对权利人授权", "上架前下架或替换"],
+            "requires_verification": true
+          }
         }
-      }
-    ]
+      ]
+    },
+    "cta": {
+      "text": "注册送 200 盾石，可看历史、批量检测和团队协作",
+      "signup_url": "https://app.troguard.com/?utm_source=skill&utm_medium=agent&utm_campaign=free_check"
+    }
   }
 }
 ```
 
-任务状态：`pending` / `dispatching` / `queued` / `running` / `succeeded` / `failed` / `canceled`。全部进入 `succeeded` / `failed` / `canceled` 后停止轮询。
+`data.batch` 是完整 `BatchView`；`data.cta` 用于引导注册。批量/历史入口在 app 内。
 
-风险等级：`critical` / `high` / `medium` / `low` / `unknown`。同图命中 TRO 案件库时通常为 `critical`。
+## 字段
 
-## 限流
-
-- 单图：每分钟 60 次、120 张（按 Key）。
-- 批量：每分钟 20 次、1000 张（按 Key）。
-- 超出返回 429 `too_many_requests`。
+| 字段 | 说明 |
+|---|---|
+| `batch.status` | `pending` / `running` / `completed` / `failed` / `canceled` |
+| `jobs[].status` | `pending` / `dispatching` / `queued` / `running` / `succeeded` / `failed` / `canceled` |
+| `result.risk_level` | `critical` / `high` / `medium` / `low` / `unknown` |
+| `result.verdict` | `likely_infringing` / `possible_infringing` / `unlikely_infringing` / `inconclusive` |
+| `result.confidence` | 0–1 |
+| `result.summary` | 一句话结论 |
+| `result.evidence[]` | 来源标题、URL、域名、类型、匹配关系、缩略图 |
+| `result.advice[]` | 处理建议 |
+| `result.requires_verification` | 是否建议人工复核 |
+| `jobs[].image_url` | 原图签名 URL |
+| `evidence[].thumbnail` | 案件库/证据缩略图签名 URL |
 
 ## 错误
 
-| HTTP / code | 含义 | 处理 |
+| 状态 | code | 说明 |
 |---|---|---|
-| 401 `unauthorized` | Key 无效、已吊销、用户或团队不可用 | 重新创建 Key |
-| 402 `insufficient_credits` | 盾石不足 | 充值后重试 |
-| 410 `aipay_deprecated` | 没有 API Key；402 按次支付已停用 | 改用 API Key |
-| 400 `invalid_input` | 图片格式/大小不对、参数非法 | 修正请求 |
-| 429 `too_many_requests` | 触发限流 | 降低并发或稍后重试 |
-| 502 / 503 | 检测服务暂不可用 | 稍后重试；不要重复扣费 |
+| 400 | `invalid_input` | 图片格式/大小不对，或参数非法 |
+| 401 | `unauthorized` | 免费 `token` 无效/过期 |
+| 429 | `skill_free_active` | 当前 IP 已有检测在跑 |
+| 429 | `skill_free_daily_limit` | 当前 IP 今日免费次数用完 |
+| 429 | `too_many_requests` | 请求过于频繁 |
+| 503 | `skill_free_global_limit` | 今日全局免费额度用完 |
+| 503 | `skill_free_unavailable` | 免费通道暂未开放 |
 
 ## 网络
 
-- 始终使用 `https://app.troguard.com`，不要用 `http://`。80 端口在备案完成前可能被拦截并返回 403。
-- 部分 macOS 自带 curl（SecureTransport）或中间网络可能重置 TLS 握手，表现为 `curl: (35) Recv failure`。优先使用 `scripts/tro-check.py`（Python/OpenSSL）或支持 TLS 1.3 的客户端。
-- 沙箱代理报 `CONNECT tunnel failed, response 502` 时，加 `--no-proxy` 或在沙箱外运行。
+- 只支持 `https://app.troguard.com`；不要用 `http://`。
+- 大陆网络下 `curl` / 部分 TLS 客户端可能握手重置；优先用 `scripts/tro-check.py`，或换 TLS 1.3 客户端。
+- 公司代理环境可加 `--no-proxy`。

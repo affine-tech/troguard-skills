@@ -1,58 +1,45 @@
-# TroGuard Agent Skill
+# TroGuard Image Infringement Check
 
-[![skills.sh](https://skills.sh/b/affine-tech/troguard-skills)](https://skills.sh/affine-tech/troguard-skills)
+用 TroGuard 检查 POD 印花、服装和跨境电商图片的版权与 TRO 侵权风险。默认**免费、单图、无需配置**，返回完整检测报告，并默认内嵌相关图片。
 
-给 AI Agent 用的 TroGuard 图片侵权检测能力：上传印花、主图、详情页素材，返回版权与 TRO 风险等级、证据来源和案件线索。
+## 免费单图
 
-官方维护：图盾 TroGuard（<https://www.troguard.com>）。只从官方仓库安装。
+```bash
+python3 scripts/tro-check.py ./pattern.png
+```
 
-适用于 Claude Code、Codex / OpenCode、Cursor 等兼容 Agent Skills 标准的工具。
+- 只接收 1 张图（≤10MB）
+- 输出完整单图报告：风险等级、判定、置信度、结论、证据、建议、人工复核
+- 结果会默认内嵌原图、案件库同图和图库/电商证据缩略图（最多 3–5 张）
+- 同一 IP 同时只能有 1 个检测在跑；每 IP 每日 50 次，全局每日 500 次，每分钟 3 次
+- 结果末尾带注册 CTA：注册送 200 盾石，可看历史、批量检测和团队协作
+- `--json` 输出完整 batch + cta；`--no-proxy` 绕过代理；`--source skill` 标记来源
 
 ## 安装
 
 ```bash
-npx skills add affine-tech/troguard-skills@troguard
+npx skills add mind6683b-a11y/troguard-skills@troguard
 ```
 
-## 配置
+支持 Claude Code、Codex / OpenCode、Cursor、WorkBuddy 等兼容 Agent Skills 的工具。
 
-1. 登录 <https://app.troguard.com/>，切换到要计费的团队。
-2. 左侧「Agent → Agent Skill」→ 创建 API Key；完整 Key 只显示一次。
-3. 设置环境变量：
+## 更多能力
 
-```bash
-export TROGUARD_API_KEY='trk_...'
-# 可选，默认 https://app.troguard.com
-export TROGUARD_API_BASE='https://app.troguard.com'
+需要批量、历史、团队协作时，到 <https://app.troguard.com/> 注册并验证邮箱。本 skill 只负责免费单图报告，批量入口在 app 内。
+
+## 目录
+
+```text
+troguard/
+├── SKILL.md
+├── README.md
+├── scripts/
+│   └── tro-check.py      # 免费单图 + 检测报告
+└── references/
+    └── api.md            # 接口、限流、错误
 ```
 
-不要在聊天、仓库或日志里保存完整 Key；泄露后在门户立即吊销。
+## 边界
 
-## 使用
-
-安装后直接让 Agent 检查图片，例如：
-
-> 帮我检查这两张印花有没有 TRO 或版权风险：./a.png ./b.jpg
-
-也可以手动运行 skill 自带脚本：
-
-```bash
-python3 skills/troguard/scripts/tro-check.py ./a.png ./b.jpg --name "上新自查"
-```
-
-脚本只用 Python 3.8+ 标准库，会批量提交并轮询到批次结束，输出风险摘要。`--json` 输出完整批次，`--env-file` 读取 Key 文件，`--no-proxy` 绕过代理。
-
-## 内容
-
-```
-skills/troguard/
-  SKILL.md              # Agent 指令
-  scripts/tro-check.py  # 批量提交 + 轮询助手
-  references/api.md     # 完整接口、字段、限流和错误
-```
-
-## 计费与边界
-
-- 1 盾石/张，失败任务退还；余额不足返回 402 `insufficient_credits`。
-- 结果是风险筛查线索，不构成法律意见；不承诺覆盖所有权利来源。
-- 402 按次支付通道已停用，公开接口只使用 API Key。
+- 只做图片侧风险筛查，不提供法律意见、诉讼代理或 TRO 应对方案。
+- 不承诺覆盖所有权利来源；未命中不代表没有风险。
